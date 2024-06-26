@@ -9,14 +9,12 @@ interface Book {
   year: number;
 }
 
-// Define the action types for the reducer
 type ActionType =
   | { type: 'ADD_BOOK'; book: Book }
   | { type: 'UPDATE_BOOK'; book: Book }
   | { type: 'DELETE_BOOK'; id: number }
   | { type: 'SET_BOOKS'; books: Book[] };
 
-// Reducer function to handle book actions
 const bookReducer = (state: Book[], action: ActionType): Book[] => {
   switch (action.type) {
     case 'ADD_BOOK':
@@ -33,42 +31,29 @@ const bookReducer = (state: Book[], action: ActionType): Book[] => {
 };
 
 const App: React.FC = () => {
-  // Use reducer to manage the books state
   const [books, dispatch] = useReducer(bookReducer, []);
-  
-  // Custom hook to persist books to localStorage
   const [storedBooks, setStoredBooks] = useLocalStorage<Book[]>('books', []);
-  
-  // State for managing the input form
   const [input, setInput] = useState({ title: '', author: '', year: '' });
-  
-  // State for managing the search input
+  const [editBook, setEditBook] = useState<Book | null>(null); // State for managing the book being edited
   const [search, setSearch] = useState('');
-  
-  // State for managing the current page in pagination
   const [currentPage, setCurrentPage] = useState(1);
-  
-  const booksPerPage = 5; // Number of books per page
+  const booksPerPage = 5;
 
-  // Load books from localStorage on component mount
   useEffect(() => {
     if (storedBooks.length > 0) {
       dispatch({ type: 'SET_BOOKS', books: storedBooks });
     }
   }, [storedBooks]);
 
-  // Save books to localStorage whenever books state changes
   useEffect(() => {
     setStoredBooks(books);
   }, [books, setStoredBooks]);
 
-  // Handle input changes for the book form
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
     setInput(prev => ({ ...prev, [name]: value }));
   };
 
-  // Handle adding a new book
   const handleAddBook = () => {
     if (!input.title.trim() || !input.author.trim() || !input.year.trim()) return;
     const newBook: Book = {
@@ -81,47 +66,46 @@ const App: React.FC = () => {
     setInput({ title: '', author: '', year: '' });
   };
 
-  // Handle deleting a book
   const handleDeleteBook = (id: number) => {
     dispatch({ type: 'DELETE_BOOK', id });
   };
 
-  // Handle updating a book
-  const handleUpdateBook = (book: Book) => {
-    const updatedTitle = prompt('Update title', book.title);
-    const updatedAuthor = prompt('Update author', book.author);
-    const updatedYear = prompt('Update year', book.year.toString());
-    if (updatedTitle && updatedAuthor && updatedYear) {
-      dispatch({
-        type: 'UPDATE_BOOK',
-        book: { ...book, title: updatedTitle, author: updatedAuthor, year: parseInt(updatedYear) },
-      });
+  const handleEditBookChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value } = e.target;
+    if (editBook) {
+      setEditBook({ ...editBook, [name]: value });
     }
   };
 
-  // Handle search input changes
+  const handleUpdateBook = () => {
+    if (editBook) {
+      dispatch({ type: 'UPDATE_BOOK', book: editBook });
+      setEditBook(null); // Clear the edit form after updating
+    }
+  };
+
+  const handleEditButtonClick = (book: Book) => {
+    setEditBook(book); // Set the book to be edited
+  };
+
   const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setSearch(e.target.value);
   };
 
-  // Memoize filtered books to avoid unnecessary recalculations
   const filteredBooks = useMemo(() => {
     return books.filter(book => book.title.toLowerCase().includes(search.toLowerCase()));
   }, [books, search]);
 
-  // Memoize current books to avoid unnecessary recalculations
   const currentBooks = useMemo(() => {
     const indexOfLastBook = currentPage * booksPerPage;
     const indexOfFirstBook = indexOfLastBook - booksPerPage;
     return filteredBooks.slice(indexOfFirstBook, indexOfLastBook);
   }, [filteredBooks, currentPage, booksPerPage]);
 
-  // Calculate total pages for pagination
   const totalPages = useMemo(() => {
     return Math.ceil(filteredBooks.length / booksPerPage);
   }, [filteredBooks.length, booksPerPage]);
 
-  // Handle pagination
   const paginate = useCallback(
     (direction: 'next' | 'prev') => {
       if (direction === 'next' && currentPage < totalPages) {
@@ -136,7 +120,6 @@ const App: React.FC = () => {
   return (
     <div className="app">
       <h1>Book Repository</h1>
-      
       <div className="book-form">
         <input
           type="text"
@@ -161,7 +144,6 @@ const App: React.FC = () => {
         />
         <button onClick={handleAddBook}>Add Book</button>
       </div>
-      
       <div className="book-search">
         <input
           type="text"
@@ -170,7 +152,34 @@ const App: React.FC = () => {
           placeholder="Search by title"
         />
       </div>
-      
+      {editBook && (
+        <div className="edit-form">
+          <h2>Edit Book</h2>
+          <input
+            type="text"
+            name="title"
+            value={editBook.title}
+            onChange={handleEditBookChange}
+            placeholder="Title"
+          />
+          <input
+            type="text"
+            name="author"
+            value={editBook.author}
+            onChange={handleEditBookChange}
+            placeholder="Author"
+          />
+          <input
+            type="number"
+            name="year"
+            value={editBook.year}
+            onChange={handleEditBookChange}
+            placeholder="Year"
+          />
+          <button onClick={handleUpdateBook}>Update Book</button>
+          <button onClick={() => setEditBook(null)}>Cancel</button>
+        </div>
+      )}
       <table className="book-table">
         <thead>
           <tr>
@@ -189,14 +198,13 @@ const App: React.FC = () => {
               <td>{book.author}</td>
               <td>{book.year}</td>
               <td className="actions">
-                <button onClick={() => handleUpdateBook(book)}>Edit</button>
+                <button onClick={() => handleEditButtonClick(book)}>Edit</button>
                 <button onClick={() => handleDeleteBook(book.id)}>Delete</button>
               </td>
             </tr>
           ))}
         </tbody>
       </table>
-      
       <div className="pagination">
         <button onClick={() => paginate('prev')}>Previous</button>
         <button onClick={() => paginate('next')}>Next</button>
