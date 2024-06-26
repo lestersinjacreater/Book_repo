@@ -2,6 +2,7 @@ import React, { useState, useReducer, useEffect, useCallback, useMemo } from 're
 import useLocalStorage from './hooks/useLocalStorage';
 import './App.css';
 
+// Define the structure of a Book
 interface Book {
   id: number;
   title: string;
@@ -9,51 +10,63 @@ interface Book {
   year: number;
 }
 
+// Define the types of actions for the reducer
 type ActionType =
   | { type: 'ADD_BOOK'; book: Book }
   | { type: 'UPDATE_BOOK'; book: Book }
   | { type: 'DELETE_BOOK'; id: number }
   | { type: 'SET_BOOKS'; books: Book[] };
 
+// Reducer function to manage book state
 const bookReducer = (state: Book[], action: ActionType): Book[] => {
   switch (action.type) {
     case 'ADD_BOOK':
-      return [...state, action.book];
+      return [...state, action.book]; // Add a new book
     case 'UPDATE_BOOK':
-      return state.map(book => (book.id === action.book.id ? action.book : book));
+      return state.map(book => (book.id === action.book.id ? action.book : book)); // Update an existing book
     case 'DELETE_BOOK':
-      return state.filter(book => book.id !== action.id);
+      return state.filter(book => book.id !== action.id); // Delete a book
     case 'SET_BOOKS':
-      return action.books;
+      return action.books; // Set books from local storage
     default:
       return state;
   }
 };
 
 const App: React.FC = () => {
+  // useReducer for managing books state
   const [books, dispatch] = useReducer(bookReducer, []);
+  // useLocalStorage custom hook to persist books in local storage
   const [storedBooks, setStoredBooks] = useLocalStorage<Book[]>('books', []);
+  // State for managing input fields for adding a new book
   const [input, setInput] = useState({ title: '', author: '', year: '' });
-  const [editBook, setEditBook] = useState<Book | null>(null); // State for managing the book being edited
+  // State for managing the book being edited
+  const [editBook, setEditBook] = useState<Book | null>(null);
+  // State for search query
   const [search, setSearch] = useState('');
+  // State for current page in pagination
   const [currentPage, setCurrentPage] = useState(1);
-  const booksPerPage = 5;
+  const booksPerPage = 5; // Number of books per page
 
+  // Load books from local storage when component mounts
   useEffect(() => {
     if (storedBooks.length > 0) {
       dispatch({ type: 'SET_BOOKS', books: storedBooks });
     }
   }, [storedBooks]);
 
+  // Save books to local storage whenever books state changes
   useEffect(() => {
     setStoredBooks(books);
   }, [books, setStoredBooks]);
 
+  // Handle input changes for adding a new book
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
     setInput(prev => ({ ...prev, [name]: value }));
   };
 
+  // Add a new book to the list
   const handleAddBook = () => {
     if (!input.title.trim() || !input.author.trim() || !input.year.trim()) return;
     const newBook: Book = {
@@ -66,10 +79,12 @@ const App: React.FC = () => {
     setInput({ title: '', author: '', year: '' });
   };
 
+  // Delete a book from the list
   const handleDeleteBook = (id: number) => {
     dispatch({ type: 'DELETE_BOOK', id });
   };
 
+  // Handle input changes for editing a book
   const handleEditBookChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
     if (editBook) {
@@ -77,6 +92,7 @@ const App: React.FC = () => {
     }
   };
 
+  // Update a book in the list
   const handleUpdateBook = () => {
     if (editBook) {
       dispatch({ type: 'UPDATE_BOOK', book: editBook });
@@ -84,28 +100,34 @@ const App: React.FC = () => {
     }
   };
 
+  // Set the book to be edited
   const handleEditButtonClick = (book: Book) => {
-    setEditBook(book); // Set the book to be edited
+    setEditBook(book);
   };
 
+  // Handle search input changes
   const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setSearch(e.target.value);
   };
 
+  // Filter books based on search query
   const filteredBooks = useMemo(() => {
     return books.filter(book => book.title.toLowerCase().includes(search.toLowerCase()));
   }, [books, search]);
 
+  // Get the current books for the current page
   const currentBooks = useMemo(() => {
     const indexOfLastBook = currentPage * booksPerPage;
     const indexOfFirstBook = indexOfLastBook - booksPerPage;
     return filteredBooks.slice(indexOfFirstBook, indexOfLastBook);
   }, [filteredBooks, currentPage, booksPerPage]);
 
+  // Calculate the total number of pages for pagination
   const totalPages = useMemo(() => {
     return Math.ceil(filteredBooks.length / booksPerPage);
   }, [filteredBooks.length, booksPerPage]);
 
+  // Handle pagination
   const paginate = useCallback(
     (direction: 'next' | 'prev') => {
       if (direction === 'next' && currentPage < totalPages) {
