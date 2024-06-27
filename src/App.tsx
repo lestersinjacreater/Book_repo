@@ -220,7 +220,7 @@ const App: React.FC = () => {
               <td>{book.author}</td>
               <td>{book.year}</td>
               <td className="actions">
-                <button onClick={() => handleEditButtonClick(book)}>Edit</button>
+                <button onClick={() => handleEditButtonClick(book)}>Edt</button>
                 <button onClick={() => handleDeleteBook(book.id)}>Delete</button>
               </td>
             </tr>
