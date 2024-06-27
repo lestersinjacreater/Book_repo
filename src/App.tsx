@@ -1,10 +1,10 @@
 import React, { useState, useReducer, useEffect, useCallback, useMemo } from 'react';
-import axios from 'axios';
+import axios from 'axios'; // Import axios for making HTTP requests
 import './App.css';
 
-// Adjusted Book Interface
+// Define the structure of a Book
 interface Book {
-  book_id: string; // Adjust type according to your backend response (string or number)
+  id: number;
   title: string;
   author: string;
   year: number;
@@ -14,35 +14,41 @@ interface Book {
 type ActionType =
   | { type: 'ADD_BOOK'; book: Book }
   | { type: 'UPDATE_BOOK'; book: Book }
-  | { type: 'DELETE_BOOK'; id: string }
+  | { type: 'DELETE_BOOK'; id: number }
   | { type: 'SET_BOOKS'; books: Book[] };
 
 // Reducer function to manage book state
 const bookReducer = (state: Book[], action: ActionType): Book[] => {
   switch (action.type) {
     case 'ADD_BOOK':
-      return [...state, action.book];
+      return [...state, action.book]; // Add a new book
     case 'UPDATE_BOOK':
-      return state.map(book => (book.book_id === action.book.book_id ? action.book : book));
+      return state.map(book => (book.id === action.book.id ? action.book : book)); // Update an existing book
     case 'DELETE_BOOK':
-      return state.filter(book => book.book_id !== action.id);
+      return state.filter(book => book.id !== action.id); // Delete a book
     case 'SET_BOOKS':
-      return action.books;
+      return action.books; // Set books from API response
     default:
       return state;
   }
 };
 
 const App: React.FC = () => {
+  // useReducer for managing books state
   const [books, dispatch] = useReducer(bookReducer, []);
+  // State for managing input fields for adding a new book
   const [input, setInput] = useState({ title: '', author: '', year: '' });
+  // State for managing the book being edited
   const [editBook, setEditBook] = useState<Book | null>(null);
+  // State for search query
   const [search, setSearch] = useState('');
+  // State for current page in pagination
   const [currentPage, setCurrentPage] = useState(1);
-  const booksPerPage = 5;
+  const booksPerPage = 5; // Number of books per page
 
+  // Load books from API when component mounts
   useEffect(() => {
-    axios.get('http://localhost:5000/books')
+    axios.get('http://localhost:3000/books')
       .then(response => {
         dispatch({ type: 'SET_BOOKS', books: response.data });
       })
@@ -51,19 +57,21 @@ const App: React.FC = () => {
       });
   }, []);
 
+  // Handle input changes for adding a new book
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
     setInput(prev => ({ ...prev, [name]: value }));
   };
 
+  // Add a new book to the list
   const handleAddBook = () => {
     if (!input.title.trim() || !input.author.trim() || !input.year.trim()) return;
-    const newBook = {
+    const newBook: Partial<Book> = {
       title: input.title,
       author: input.author,
       year: parseInt(input.year),
     };
-    axios.post('http://localhost:5000/books', newBook)
+    axios.post('http://localhost:3000/books', newBook)
       .then(response => {
         dispatch({ type: 'ADD_BOOK', book: response.data });
       })
@@ -73,8 +81,9 @@ const App: React.FC = () => {
     setInput({ title: '', author: '', year: '' });
   };
 
-  const handleDeleteBook = (id: string) => {
-    axios.delete(`http://localhost:5000/books/${id}`)
+  // Delete a book from the list
+  const handleDeleteBook = (id: number) => {
+    axios.delete(`http://localhost:3000/books/${id}`)
       .then(() => {
         dispatch({ type: 'DELETE_BOOK', id });
       })
@@ -83,6 +92,7 @@ const App: React.FC = () => {
       });
   };
 
+  // Handle input changes for editing a book
   const handleEditBookChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
     if (editBook) {
@@ -90,12 +100,13 @@ const App: React.FC = () => {
     }
   };
 
+  // Update a book in the list
   const handleUpdateBook = () => {
     if (editBook) {
-      axios.put(`http://localhost:5000/books/${editBook.book_id}`, editBook)
+      axios.put(`http://localhost:3000/books/${editBook.id}`, editBook) 
         .then(response => {
           dispatch({ type: 'UPDATE_BOOK', book: response.data });
-          setEditBook(null);
+          setEditBook(null); // Clear the edit form after updating
         })
         .catch(error => {
           console.error("There was an error updating the book!", error);
@@ -103,32 +114,38 @@ const App: React.FC = () => {
     }
   };
 
+  // Set the book to be edited
   const handleEditButtonClick = (book: Book) => {
     setEditBook(book);
   };
 
+  // Handle search input changes
   const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setSearch(e.target.value);
   };
 
+  // Filter books based on search query (title, author, or year)
   const filteredBooks = useMemo(() => {
-    return books.filter(book =>
+    return books.filter(book => 
       book.title.toLowerCase().includes(search.toLowerCase()) ||
       book.author.toLowerCase().includes(search.toLowerCase()) ||
       book.year.toString().includes(search)
     );
   }, [books, search]);
 
+  // Get the current books for the current page
   const currentBooks = useMemo(() => {
     const indexOfLastBook = currentPage * booksPerPage;
     const indexOfFirstBook = indexOfLastBook - booksPerPage;
     return filteredBooks.slice(indexOfFirstBook, indexOfLastBook);
   }, [filteredBooks, currentPage, booksPerPage]);
 
+  // Calculate the total number of pages for pagination
   const totalPages = useMemo(() => {
     return Math.ceil(filteredBooks.length / booksPerPage);
   }, [filteredBooks.length, booksPerPage]);
 
+  // Handle pagination
   const paginate = useCallback(
     (direction: 'next' | 'prev') => {
       if (direction === 'next' && currentPage < totalPages) {
@@ -172,7 +189,7 @@ const App: React.FC = () => {
           type="text"
           value={search}
           onChange={handleSearchChange}
-          placeholder="Search by title"
+          placeholder="Search by title, author, or year"
         />
       </div>
       {editBook && (
@@ -215,14 +232,14 @@ const App: React.FC = () => {
         </thead>
         <tbody>
           {currentBooks.map(book => (
-            <tr key={book.book_id}>
-              <td>{book.book_id}</td>
+            <tr key={book.id}>
+              <td>{book.id}</td>
               <td>{book.title}</td>
               <td>{book.author}</td>
               <td>{book.year}</td>
               <td className="actions">
                 <button onClick={() => handleEditButtonClick(book)}>Edit</button>
-                <button onClick={() => handleDeleteBook(book.book_id)}>Delete</button>
+                <button onClick={() => handleDeleteBook(book.id)}>Delete</button>
               </td>
             </tr>
           ))}
